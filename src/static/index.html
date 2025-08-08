@@ -254,6 +254,11 @@
                     <button class="btn btn-secondary" onclick="viewFiles()">📁 View Drive Files</button>
                     <button class="btn btn-vault" onclick="viewVault()">🔒 Access Vault</button>
                     <button class="btn" onclick="checkHealth()">❤️ Health Check</button>
+                    <button class="btn" onclick="viewScanDashboard()">📊 Scan Dashboard</button>
+                    <button class="btn" onclick="viewScanStatus()">📈 Scan Status</button>
+                    <button class="btn btn-primary" onclick="generateReport()">📄 Generate Report</button>
+                    <button class="btn btn-secondary" onclick="viewDLPConfig()">⚙️ DLP Config</button>
+                    <button class="btn btn-warning" onclick="manageVault()">🛡️ Vault Security</button>
                 </div>
                 
                 <div class="status-section">
@@ -335,7 +340,7 @@
         async function triggerScan() {
             if (confirm('This will scan all eligible files in your Google Drive. Continue?')) {
                 try {
-                    const response = await fetch('/api/drive/scan/trigger', {
+                    const response = await fetch('/api/drive/scan/direct', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -345,7 +350,27 @@
                     
                     const result = await response.json();
                     if (response.ok) {
-                        alert(`Scan initiated! ${result.scanned_files} files queued for scanning.`);
+                        let message = `Scan completed!\n\n`;
+                        message += `📊 Results:\n`;
+                        message += `   Scanned: ${result.scanned_files} files\n`;
+                        message += `   Skipped: ${result.skipped_files} files\n\n`;
+                        
+                        if (result.details && result.details.scanned.length > 0) {
+                            message += `📋 Scanned Files:\n`;
+                            result.details.scanned.forEach((file, index) => {
+                                const status = file.status === 'sensitive_data_found' ? '⚠️' : '✅';
+                                message += `   ${index + 1}. ${file.file_name} ${status} (${file.findings_count} findings)\n`;
+                            });
+                        }
+                        
+                        if (result.details && result.details.skipped.length > 0) {
+                            message += `\n⏭️ Skipped Files:\n`;
+                            result.details.skipped.slice(0, 5).forEach((file, index) => {
+                                message += `   ${index + 1}. ${file.file_name} (${file.reason})\n`;
+                            });
+                        }
+                        
+                        alert(message);
                     } else {
                         alert(`Error: ${result.error}`);
                     }
@@ -401,6 +426,238 @@
         async function checkHealth() {
             await checkAllServices();
             alert('Health check completed! Check the status indicators above.');
+        }
+
+        async function viewScanDashboard() {
+            try {
+                const response = await fetch('/api/dlp/dashboard');
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const dashboard = result.dashboard;
+                    let dashboardInfo = '📊 Scan Dashboard:\n\n';
+                    dashboardInfo += `📈 Overview:\n`;
+                    dashboardInfo += `   Total Files Scanned: ${dashboard.overview.total_files_scanned}\n`;
+                    dashboardInfo += `   Files with Sensitive Data: ${dashboard.overview.files_with_sensitive_data}\n`;
+                    dashboardInfo += `   Clean Files: ${dashboard.overview.clean_files}\n`;
+                    dashboardInfo += `   Success Rate: ${dashboard.overview.scan_success_rate}%\n\n`;
+                    
+                    dashboardInfo += `📅 Recent Activity:\n`;
+                    dashboardInfo += `   Scans Last 7 Days: ${dashboard.recent_activity.scans_last_7_days}\n\n`;
+                    
+                    dashboardInfo += `📊 Trends:\n`;
+                    dashboardInfo += `   Total Findings: ${dashboard.scan_trends.total_findings}\n`;
+                    dashboardInfo += `   Avg Findings per File: ${dashboard.scan_trends.average_findings_per_file}\n`;
+                    
+                    if (dashboard.top_concerns.files_with_most_findings.length > 0) {
+                        dashboardInfo += `\n⚠️ Top Concerns:\n`;
+                        dashboard.top_concerns.files_with_most_findings.forEach((file, index) => {
+                            dashboardInfo += `   ${index + 1}. ${file.file_name} (${file.findings_count} findings)\n`;
+                        });
+                    }
+                    
+                    alert(dashboardInfo);
+                } else {
+                    alert(`Error: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        async function viewScanStatus() {
+            try {
+                const response = await fetch('/api/dlp/status');
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const stats = result.statistics;
+                    let statusInfo = '📈 Scan Status:\n\n';
+                    statusInfo += `📊 Statistics:\n`;
+                    statusInfo += `   Total Files Scanned: ${stats.total_files_scanned}\n`;
+                    statusInfo += `   Files with Sensitive Data: ${stats.files_with_sensitive_data}\n`;
+                    statusInfo += `   Clean Files: ${stats.clean_files}\n\n`;
+                    
+                    if (result.scan_results && result.scan_results.length > 0) {
+                        statusInfo += `📋 Recent Scan Results:\n`;
+                        result.scan_results.slice(0, 5).forEach((scan, index) => {
+                            const status = scan.status === 'sensitive_data_found' ? '⚠️' : '✅';
+                            statusInfo += `   ${index + 1}. ${scan.file_name} ${status} (${scan.findings_count} findings)\n`;
+                        });
+                    } else {
+                        statusInfo += `📋 No scan results available yet.\n`;
+                        statusInfo += `   Try scanning some files to see results here!`;
+                    }
+                    
+                    alert(statusInfo);
+                } else {
+                    alert(`Error: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        async function generateReport() {
+            if (confirm('Generate a comprehensive PDF security scan report? This will include all scan results, risk assessment, and recommendations.')) {
+                try {
+                    // Show loading message
+                    const loadingDiv = document.createElement('div');
+                    loadingDiv.id = 'loading';
+                    loadingDiv.innerHTML = '📄 Generating PDF Report... Please wait...';
+                    loadingDiv.style.cssText = `
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        background: #007bff;
+                        color: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        z-index: 1000;
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+                    `;
+                    document.body.appendChild(loadingDiv);
+                    
+                    const response = await fetch('/api/dlp/report/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            type: 'comprehensive',
+                            include_findings: true
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        // Get the blob from the response
+                        const blob = await response.blob();
+                        
+                        // Create download link
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `drive_security_scan_report_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.pdf`;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                        
+                        alert('✅ PDF Report generated and downloaded successfully!');
+                    } else {
+                        const error = await response.json();
+                        alert(`Error generating report: ${error.error}`);
+                    }
+                } catch (error) {
+                    alert(`Error: ${error.message}`);
+                } finally {
+                    // Remove loading message
+                    const loadingDiv = document.getElementById('loading');
+                    if (loadingDiv) {
+                        document.body.removeChild(loadingDiv);
+                    }
+                }
+            }
+        }
+
+        async function viewDLPConfig() {
+            try {
+                const [configResponse, infoTypesResponse] = await Promise.all([
+                    fetch('/api/dlp/config'),
+                    fetch('/api/dlp/config/info-types')
+                ]);
+                
+                const config = await configResponse.json();
+                const infoTypes = await infoTypesResponse.json();
+                
+                if (config.status === 'success' && infoTypes.status === 'success') {
+                    let configInfo = '⚙️ DLP Configuration:\n\n';
+                    configInfo += `📊 Current Settings:\n`;
+                    configInfo += `   Min Likelihood: ${config.config.inspectConfig.minLikelihood}\n`;
+                    configInfo += `   Max Findings: ${config.config.inspectConfig.limits.maxFindingsPerRequest}\n`;
+                    configInfo += `   Standard Info Types: ${config.config.inspectConfig.infoTypes.length}\n`;
+                    
+                    if (config.config.inspectConfig.customInfoTypes) {
+                        configInfo += `   Custom Info Types: ${config.config.inspectConfig.customInfoTypes.length}\n`;
+                    }
+                    
+                    configInfo += `\n🔍 Available Info Types:\n`;
+                    configInfo += `   Standard: ${infoTypes.standard_types.length} types\n`;
+                    configInfo += `   Custom: ${infoTypes.custom_types.length} types\n`;
+                    configInfo += `   Total: ${infoTypes.total_types} types\n\n`;
+                    
+                    configInfo += `📋 Standard Types (Sample):\n`;
+                    infoTypes.standard_types.slice(0, 10).forEach((type, index) => {
+                        configInfo += `   ${index + 1}. ${type}\n`;
+                    });
+                    
+                    configInfo += `\n🔧 Custom Types:\n`;
+                    infoTypes.custom_types.forEach((type, index) => {
+                        configInfo += `   ${index + 1}. ${type}\n`;
+                    });
+                    
+                    configInfo += `\n💡 To customize:\n`;
+                    configInfo += `   • Add custom patterns via API\n`;
+                    configInfo += `   • Modify sensitivity levels\n`;
+                    configInfo += `   • Enable/disable specific types`;
+                    
+                    alert(configInfo);
+                } else {
+                    alert(`Error: ${config.error || infoTypes.error}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        async function manageVault() {
+            try {
+                const [securityResponse, statsResponse] = await Promise.all([
+                    fetch('/api/vault/security-status'),
+                    fetch('/api/vault/statistics')
+                ]);
+                
+                const security = await securityResponse.json();
+                const stats = await statsResponse.json();
+                
+                if (security.status === 'success' && stats.status === 'success') {
+                    const sec = security.security_status;
+                    const stat = stats.statistics;
+                    
+                    let vaultInfo = '🛡️ Vault Security Status:\n\n';
+                    vaultInfo += `🔐 Security Features:\n`;
+                    vaultInfo += `   FIPS-140-2 Compliant: ${sec.fips_compliant ? '✅' : '❌'}\n`;
+                    vaultInfo += `   Encryption Enabled: ${sec.encryption_enabled ? '✅' : '❌'}\n`;
+                    vaultInfo += `   KMS Enabled: ${sec.kms_enabled ? '✅' : '❌'}\n`;
+                    vaultInfo += `   Versioning: ${sec.versioning_enabled ? '✅' : '❌'}\n`;
+                    vaultInfo += `   Uniform Access: ${sec.uniform_bucket_access ? '✅' : '❌'}\n`;
+                    vaultInfo += `   Lifecycle Policies: ${sec.lifecycle_policies ? '✅' : '❌'}\n`;
+                    vaultInfo += `   Audit Logging: ${sec.audit_logging ? '✅' : '❌'}\n`;
+                    vaultInfo += `   Compliance Level: ${sec.compliance_level}\n`;
+                    vaultInfo += `   Retention Policy: ${sec.retention_policy}\n\n`;
+                    
+                    vaultInfo += `📊 Vault Statistics:\n`;
+                    vaultInfo += `   Total Documents: ${stat.total_documents}\n`;
+                    vaultInfo += `   Total Size: ${stat.total_size_mb} MB\n`;
+                    vaultInfo += `   Encrypted: ${stat.encrypted_documents}\n`;
+                    vaultInfo += `   Encryption Rate: ${stat.encryption_percentage}%\n\n`;
+                    
+                    vaultInfo += `🛡️ Security Features:\n`;
+                    vaultInfo += `   • AES-256-GCM Encryption\n`;
+                    vaultInfo += `   • FIPS-140-2 Compliance\n`;
+                    vaultInfo += `   • 7-Year Retention Policy\n`;
+                    vaultInfo += `   • Audit Trail Logging\n`;
+                    vaultInfo += `   • Restricted Access Controls\n`;
+                    vaultInfo += `   • Versioning for Integrity\n`;
+                    
+                    alert(vaultInfo);
+                } else {
+                    alert(`Error: ${security.error || stats.error}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
         }
     </script>
 </body>

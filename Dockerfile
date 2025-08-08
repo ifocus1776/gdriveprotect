@@ -32,6 +32,9 @@ COPY src/ ./src/
 COPY README.md .
 COPY LICENSE .
 
+# Copy Google Cloud credentials
+COPY service-account-key.json /app/.config/gcloud/application_default_credentials.json
+
 # Create necessary directories
 RUN mkdir -p src/database
 RUN mkdir -p /app/.config/gcloud

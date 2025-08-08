@@ -1,0 +1,30 @@
+#!/bin/bash
+
+echo "🔐 Quick OAuth Setup for Personal Google Drive Access"
+echo "====================================================="
+echo ""
+
+echo "📋 Steps to create OAuth credentials:"
+echo ""
+echo "1. Go to: https://console.cloud.google.com/apis/credentials"
+echo "2. Make sure you're in the 'ifocus-innovations' project"
+echo "3. Click 'Create Credentials' → 'OAuth 2.0 Client IDs'"
+echo "4. Application type: 'Desktop application'"
+echo "5. Name: 'GDriveProtect Desktop Client'"
+echo "6. Click 'Create'"
+echo "7. Download the JSON file"
+echo "8. Rename it to 'oauth_credentials.json'"
+echo "9. Place it in this directory"
+echo ""
+
+echo "Once you have oauth_credentials.json in this directory, run:"
+echo "docker stop gdriveprotect-test"
+echo "docker rm gdriveprotect-test"
+echo "docker run -d --name gdriveprotect-test -p 5000:5000 \\"
+echo "  -e GOOGLE_CLOUD_PROJECT=ifocus-innovations \\"
+echo "  -v \$(pwd)/oauth_credentials.json:/app/oauth_credentials.json:ro \\"
+echo "  -e GOOGLE_APPLICATION_CREDENTIALS=/app/oauth_credentials.json \\"
+echo "  gdriveprotect"
+echo ""
+
+echo "This will allow the app to access your personal Google Drive files!"
