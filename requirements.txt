@@ -3,6 +3,7 @@ cachetools==5.5.2
 certifi==2025.7.14
 charset-normalizer==3.4.2
 click==8.2.1
+cryptography==42.0.5
 Flask==3.1.1
 flask-cors==6.0.0
 Flask-SQLAlchemy==3.1.1
@@ -36,6 +37,7 @@ protobuf==6.31.1
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
 pyparsing==3.2.3
+reportlab==4.1.0
 requests==2.32.4
 rsa==4.9.1
 SQLAlchemy==2.0.41
