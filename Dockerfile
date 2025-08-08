@@ -32,7 +32,7 @@ COPY src/ ./src/
 COPY README.md .
 COPY LICENSE .
 
-# Copy Google Cloud credentials
+# Copy Google Cloud credentials (Service Account)
 COPY service-account-key.json /app/.config/gcloud/application_default_credentials.json
 
 # Create necessary directories

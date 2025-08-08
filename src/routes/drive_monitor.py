@@ -41,8 +41,8 @@ class DriveMonitor:
             self.publisher = None
             self.topic_path = None
     
-    def _init_drive_service(self):
-        """Initialize Google Drive API service with fallback authentication"""
+    def _init_drive_service(self, target_user=None):
+        """Initialize Google Drive API service with user impersonation"""
         try:
             # First try service account credentials
             credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
@@ -55,7 +55,7 @@ class DriveMonitor:
                     # If it has service account fields, use service account auth
                     if 'type' in cred_data and cred_data['type'] == 'service_account':
                         logger.info("Using service account credentials")
-                        credentials = service_account.Credentials.from_service_account_file(
+                        base_credentials = service_account.Credentials.from_service_account_file(
                             credentials_path,
                             scopes=[
                                 'https://www.googleapis.com/auth/drive',
@@ -64,7 +64,26 @@ class DriveMonitor:
                                 'https://www.googleapis.com/auth/drive.file'
                             ]
                         )
-                        self.drive_service = build('drive', 'v3', credentials=credentials)
+                        
+                        # If target user is specified, impersonate that user
+                        if target_user:
+                            from google.auth import impersonated_credentials
+                            target_credentials = impersonated_credentials.Credentials(
+                                source_credentials=base_credentials,
+                                target_principal=target_user,
+                                target_scopes=[
+                                    'https://www.googleapis.com/auth/drive',
+                                    'https://www.googleapis.com/auth/drive.readonly',
+                                    'https://www.googleapis.com/auth/drive.metadata.readonly',
+                                    'https://www.googleapis.com/auth/drive.file'
+                                ]
+                            )
+                            self.drive_service = build('drive', 'v3', credentials=target_credentials)
+                            logger.info(f"Impersonating user: {target_user}")
+                        else:
+                            # Use service account directly (for admin operations)
+                            self.drive_service = build('drive', 'v3', credentials=base_credentials)
+                            logger.info("Using service account directly")
                     # If it has OAuth client credentials format, use application default credentials
                     elif 'installed' in cred_data or 'web' in cred_data:
                         logger.info("OAuth client credentials detected, using application default credentials")
@@ -633,6 +652,150 @@ def setup_notifications():
         
     except Exception as e:
         logger.error(f"Error in setup_notifications: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@drive_bp.route('/users', methods=['GET'])
+def list_domain_users():
+    """List all users in the domain"""
+    try:
+        # Use Admin SDK to list users
+        credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+        if credentials_path and os.path.exists(credentials_path):
+            with open(credentials_path, 'r') as f:
+                cred_data = json.load(f)
+            
+            if 'type' in cred_data and cred_data['type'] == 'service_account':
+                base_credentials = service_account.Credentials.from_service_account_file(
+                    credentials_path,
+                    scopes=[
+                        'https://www.googleapis.com/auth/admin.directory.user.readonly',
+                        'https://www.googleapis.com/auth/drive',
+                        'https://www.googleapis.com/auth/drive.readonly'
+                    ]
+                )
+                
+                admin_service = build('admin', 'directory_v1', credentials=base_credentials)
+                users = admin_service.users().list(domain='ifocusinnovations.com').execute()
+                
+                return jsonify({
+                    'users': users.get('users', []),
+                    'status': 'success'
+                })
+            else:
+                return jsonify({'error': 'Service account credentials required for admin operations'}), 500
+        else:
+            return jsonify({'error': 'No credentials found'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error listing domain users: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@drive_bp.route('/files/<user_email>', methods=['GET'])
+def list_user_files(user_email):
+    """List files for a specific user"""
+    try:
+        # Initialize drive service with user impersonation
+        drive_monitor = DriveMonitor()
+        drive_monitor._init_drive_service(target_user=user_email)
+        
+        files = drive_monitor.list_drive_files()
+        return jsonify(files)
+    except Exception as e:
+        logger.error(f"Error listing files for user {user_email}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@drive_bp.route('/scan/bulk', methods=['POST'])
+def bulk_user_scan():
+    """Scan multiple users' drives"""
+    try:
+        data = request.get_json()
+        users = data.get('users', [])
+        results = {}
+        
+        for user_email in users:
+            try:
+                # Initialize drive service for this user
+                drive_monitor = DriveMonitor()
+                drive_monitor._init_drive_service(target_user=user_email)
+                
+                # Get user's files
+                files = drive_monitor.list_drive_files()
+                
+                # Scan each file (simplified for now)
+                scan_results = []
+                for file in files.get('files', []):
+                    scan_results.append({
+                        'file_id': file.get('id'),
+                        'file_name': file.get('name'),
+                        'status': 'pending_scan'
+                    })
+                
+                results[user_email] = {
+                    'files_found': len(files.get('files', [])),
+                    'scan_results': scan_results
+                }
+                
+            except Exception as e:
+                results[user_email] = {'error': str(e)}
+        
+        return jsonify({
+            'bulk_scan_results': results,
+            'status': 'success'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in bulk user scan: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@drive_bp.route('/users/discover', methods=['GET'])
+def discover_active_users():
+    """Discover active users in the domain"""
+    try:
+        credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+        if credentials_path and os.path.exists(credentials_path):
+            with open(credentials_path, 'r') as f:
+                cred_data = json.load(f)
+            
+            if 'type' in cred_data and cred_data['type'] == 'service_account':
+                base_credentials = service_account.Credentials.from_service_account_file(
+                    credentials_path,
+                    scopes=[
+                        'https://www.googleapis.com/auth/admin.directory.user.readonly',
+                        'https://www.googleapis.com/auth/drive',
+                        'https://www.googleapis.com/auth/drive.readonly'
+                    ]
+                )
+                
+                admin_service = build('admin', 'directory_v1', credentials=base_credentials)
+                
+                # Get all users
+                users = admin_service.users().list(
+                    domain='ifocusinnovations.com',
+                    maxResults=500
+                ).execute()
+                
+                active_users = []
+                for user in users.get('users', []):
+                    if user.get('suspended') != True:  # Only active users
+                        active_users.append({
+                            'email': user.get('primaryEmail'),
+                            'name': user.get('name', {}).get('fullName'),
+                            'lastLoginTime': user.get('lastLoginTime'),
+                            'creationTime': user.get('creationTime')
+                        })
+                
+                return jsonify({
+                    'active_users': active_users,
+                    'total_users': len(active_users),
+                    'status': 'success'
+                })
+            else:
+                return jsonify({'error': 'Service account credentials required for admin operations'}), 500
+        else:
+            return jsonify({'error': 'No credentials found'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error discovering active users: {e}")
         return jsonify({'error': str(e)}), 500
 
 @drive_bp.route('/health', methods=['GET'])
