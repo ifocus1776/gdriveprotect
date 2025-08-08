@@ -6,6 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_APP=src.main
 ENV FLASK_ENV=production
+ENV GOOGLE_APPLICATION_CREDENTIALS=/app/.config/gcloud/application_default_credentials.json
 
 # Set work directory
 WORKDIR /app
@@ -33,6 +34,7 @@ COPY LICENSE .
 
 # Create necessary directories
 RUN mkdir -p src/database
+RUN mkdir -p /app/.config/gcloud
 
 # Create a non-root user for security
 RUN adduser --disabled-password --gecos '' appuser

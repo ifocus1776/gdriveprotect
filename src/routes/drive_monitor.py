@@ -8,6 +8,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
+from google.auth import default
 from google.cloud import pubsub_v1
 import requests
 
@@ -20,18 +21,33 @@ logger = logging.getLogger(__name__)
 class DriveMonitor:
     def __init__(self):
         self.drive_service = None
-        self.publisher = pubsub_v1.PublisherClient()
+        self.publisher = None
         self.project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
         self.topic_name = os.environ.get('SCAN_REQUEST_TOPIC', 'drive-scan-requests')
-        self.topic_path = self.publisher.topic_path(self.project_id, self.topic_name)
+        self.topic_path = None
         
+        self._init_clients()
         self._init_drive_service()
     
-    def _init_drive_service(self):
-        """Initialize Google Drive API service"""
+    def _init_clients(self):
+        """Initialize Google Cloud clients with fallback authentication"""
         try:
+            # Initialize PubSub client
+            self.publisher = pubsub_v1.PublisherClient()
+            self.topic_path = self.publisher.topic_path(self.project_id, self.topic_name)
+            logger.info("PubSub client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize PubSub client: {e}")
+            self.publisher = None
+            self.topic_path = None
+    
+    def _init_drive_service(self):
+        """Initialize Google Drive API service with fallback authentication"""
+        try:
+            # First try service account credentials
             credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-            if credentials_path:
+            if credentials_path and os.path.exists(credentials_path):
+                logger.info("Using service account credentials")
                 credentials = service_account.Credentials.from_service_account_file(
                     credentials_path,
                     scopes=[
@@ -41,9 +57,17 @@ class DriveMonitor:
                 )
                 self.drive_service = build('drive', 'v3', credentials=credentials)
             else:
-                logger.warning("No service account credentials found")
+                # Fallback to user credentials (application default)
+                logger.info("Using application default credentials")
+                credentials, project = default(scopes=[
+                    'https://www.googleapis.com/auth/drive.readonly',
+                    'https://www.googleapis.com/auth/drive.metadata.readonly'
+                ])
+                self.drive_service = build('drive', 'v3', credentials=credentials)
+                logger.info(f"Authenticated as user for project: {project}")
         except Exception as e:
             logger.error(f"Failed to initialize Drive service: {e}")
+            logger.info("Drive service will not be available. Please set up authentication.")
     
     def get_supported_mime_types(self):
         """Get list of supported MIME types for scanning"""
@@ -88,6 +112,10 @@ class DriveMonitor:
     def publish_scan_request(self, file_metadata):
         """Publish a scan request to Pub/Sub"""
         try:
+            if not self.publisher or not self.topic_path:
+                logger.warning("PubSub client not initialized, skipping scan request")
+                return None
+                
             message_data = {
                 'file_id': file_metadata['id'],
                 'file_name': file_metadata['name'],
@@ -98,19 +126,14 @@ class DriveMonitor:
                 'request_timestamp': datetime.utcnow().isoformat()
             }
             
-            # Publish message
             message_json = json.dumps(message_data)
-            message_bytes = message_json.encode('utf-8')
-            
-            future = self.publisher.publish(self.topic_path, message_bytes)
+            future = self.publisher.publish(self.topic_path, message_json.encode('utf-8'))
             message_id = future.result()
-            
             logger.info(f"Published scan request for file {file_metadata['id']}: {message_id}")
             return message_id
-            
         except Exception as e:
-            logger.error(f"Error publishing scan request: {e}")
-            raise
+            logger.error(f"Failed to publish scan request: {e}")
+            return None
     
     def list_drive_files(self, query=None, max_results=100):
         """List files in Google Drive"""

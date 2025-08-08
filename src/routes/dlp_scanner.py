@@ -10,6 +10,7 @@ from google.cloud import dlp_v2
 from google.cloud import storage
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
+from google.auth import default
 import io
 
 dlp_bp = Blueprint('dlp', __name__)
@@ -20,29 +21,56 @@ logger = logging.getLogger(__name__)
 
 class DLPScanner:
     def __init__(self):
-        self.dlp_client = dlp_v2.DlpServiceClient()
-        self.storage_client = storage.Client()
+        self.dlp_client = None
+        self.storage_client = None
         self.project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
+        
+        # Initialize clients
+        self._init_clients()
+    
+    def _init_clients(self):
+        """Initialize Google Cloud clients with fallback authentication"""
+        try:
+            # Initialize DLP client
+            self.dlp_client = dlp_v2.DlpServiceClient()
+            logger.info("DLP client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize DLP client: {e}")
+            self.dlp_client = None
+        
+        try:
+            # Initialize Storage client
+            self.storage_client = storage.Client()
+            logger.info("Storage client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Storage client: {e}")
+            self.storage_client = None
         
         # Initialize Drive API client
         self.drive_service = None
         self._init_drive_service()
     
     def _init_drive_service(self):
-        """Initialize Google Drive API service"""
+        """Initialize Google Drive API service with fallback authentication"""
         try:
-            # Use service account credentials
+            # First try service account credentials
             credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-            if credentials_path:
+            if credentials_path and os.path.exists(credentials_path):
+                logger.info("Using service account credentials")
                 credentials = service_account.Credentials.from_service_account_file(
                     credentials_path,
                     scopes=['https://www.googleapis.com/auth/drive.readonly']
                 )
                 self.drive_service = build('drive', 'v3', credentials=credentials)
             else:
-                logger.warning("No service account credentials found")
+                # Fallback to user credentials (application default)
+                logger.info("Using application default credentials")
+                credentials, project = default(scopes=['https://www.googleapis.com/auth/drive.readonly'])
+                self.drive_service = build('drive', 'v3', credentials=credentials)
+                logger.info(f"Authenticated as user for project: {project}")
         except Exception as e:
             logger.error(f"Failed to initialize Drive service: {e}")
+            logger.info("Drive service will not be available. Please set up authentication.")
     
     def get_sensitive_info_types(self):
         """Get the list of infoTypes to scan for sensitive data"""
@@ -171,6 +199,10 @@ class DLPScanner:
     def store_scan_results(self, scan_results, file_id):
         """Store scan results in Cloud Storage"""
         try:
+            if not self.storage_client:
+                logger.warning("Storage client not initialized, skipping result storage")
+                return None
+                
             bucket_name = os.environ.get('SCAN_RESULTS_BUCKET', 'drive-scanner-results')
             bucket = self.storage_client.bucket(bucket_name)
             

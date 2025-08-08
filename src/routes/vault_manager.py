@@ -19,14 +19,36 @@ logger = logging.getLogger(__name__)
 
 class VaultManager:
     def __init__(self):
-        self.storage_client = storage.Client()
-        self.kms_client = kms.KeyManagementServiceClient()
+        self.storage_client = None
+        self.kms_client = None
         self.project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
         self.vault_bucket_name = os.environ.get('VAULT_BUCKET', 'drive-scanner-vault')
         self.kms_key_name = os.environ.get('KMS_KEY_NAME')
         
-        # Initialize vault bucket
-        self._ensure_vault_bucket_exists()
+        # Initialize clients
+        self._init_clients()
+        
+        # Initialize vault bucket if storage client is available
+        if self.storage_client:
+            self._ensure_vault_bucket_exists()
+    
+    def _init_clients(self):
+        """Initialize Google Cloud clients with fallback authentication"""
+        try:
+            # Initialize Storage client
+            self.storage_client = storage.Client()
+            logger.info("Storage client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Storage client: {e}")
+            self.storage_client = None
+        
+        try:
+            # Initialize KMS client
+            self.kms_client = kms.KeyManagementServiceClient()
+            logger.info("KMS client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize KMS client: {e}")
+            self.kms_client = None
     
     def _ensure_vault_bucket_exists(self):
         """Ensure the vault bucket exists with proper security settings"""
@@ -234,6 +256,12 @@ class VaultManager:
     def get_vault_statistics(self):
         """Get statistics about the vault"""
         try:
+            if not self.storage_client:
+                return {
+                    'error': 'Storage client not initialized',
+                    'message': 'Please set up Google Cloud authentication to access vault statistics'
+                }
+                
             bucket = self.storage_client.bucket(self.vault_bucket_name)
             
             # Count documents and calculate total size
@@ -260,7 +288,10 @@ class VaultManager:
             
         except Exception as e:
             logger.error(f"Error getting vault statistics: {e}")
-            raise
+            return {
+                'error': str(e),
+                'message': 'Failed to retrieve vault statistics'
+            }
 
 # Initialize vault manager instance
 vault_manager = VaultManager()
