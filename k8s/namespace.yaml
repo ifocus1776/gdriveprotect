@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gdriveprotect
+  labels:
+    name: gdriveprotect
+    app: gdriveprotect
+    environment: production
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gdriveprotect-dev
+  labels:
+    name: gdriveprotect-dev
+    app: gdriveprotect
+    environment: development

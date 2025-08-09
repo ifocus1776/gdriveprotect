@@ -1,0 +1,29 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gdriveprotect-pdb
+  namespace: gdriveprotect
+  labels:
+    app: gdriveprotect
+    marketplace: "true"
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: gdriveprotect
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gdriveprotect-pdb-dev
+  namespace: gdriveprotect-dev
+  labels:
+    app: gdriveprotect
+    marketplace: "true"
+    environment: development
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: gdriveprotect
+      environment: development

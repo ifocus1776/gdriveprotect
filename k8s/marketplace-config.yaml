@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gdriveprotect-marketplace-config
+  namespace: gdriveprotect
+  labels:
+    app: gdriveprotect
+    marketplace: "true"
+data:
+  # Google Workspace Marketplace Configuration
+  MARKETPLACE_ENABLED: "true"
+  MARKETPLACE_APP_ID: "your-marketplace-app-id"
+  MARKETPLACE_DOMAIN: "yourdomain.com"
+  
+  # Security and Compliance
+  SECURITY_SCAN_ENABLED: "true"
+  COMPLIANCE_MODE: "enterprise"
+  AUDIT_LOGGING_ENABLED: "true"
+  DATA_RETENTION_DAYS: "2555"  # 7 years for compliance
+  
+  # API Configuration
+  GOOGLE_APIS_ENABLED: "true"
+  DRIVE_API_SCOPE: "https://www.googleapis.com/auth/drive.readonly"
+  DLP_API_ENABLED: "true"
+  KMS_API_ENABLED: "true"
+  
+  # Rate Limiting and Quotas
+  RATE_LIMIT_REQUESTS_PER_MINUTE: "1000"
+  RATE_LIMIT_BURST_SIZE: "100"
+  API_QUOTA_MANAGEMENT: "true"
+  
+  # Monitoring and Support
+  MONITORING_ENABLED: "true"
+  SUPPORT_EMAIL: "support@yourdomain.com"
+  SUPPORT_URL: "https://support.yourdomain.com"
+  
+  # Marketplace Integration
+  OAUTH_CONSENT_SCREEN_ENABLED: "true"
+  OAUTH_SCOPES: "https://www.googleapis.com/auth/drive.readonly,https://www.googleapis.com/auth/drive.metadata.readonly"
+  OAUTH_VERIFICATION_STATUS: "verified"
+  
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gdriveprotect-marketplace-config-dev
+  namespace: gdriveprotect-dev
+  labels:
+    app: gdriveprotect
+    marketplace: "true"
+    environment: development
+data:
+  # Development Marketplace Configuration
+  MARKETPLACE_ENABLED: "true"
+  MARKETPLACE_APP_ID: "your-marketplace-app-id-dev"
+  MARKETPLACE_DOMAIN: "yourdomain.com"
+  
+  # Security and Compliance (Development)
+  SECURITY_SCAN_ENABLED: "true"
+  COMPLIANCE_MODE: "development"
+  AUDIT_LOGGING_ENABLED: "true"
+  DATA_RETENTION_DAYS: "30"  # Shorter retention for dev
+  
+  # API Configuration
+  GOOGLE_APIS_ENABLED: "true"
+  DRIVE_API_SCOPE: "https://www.googleapis.com/auth/drive.readonly"
+  DLP_API_ENABLED: "true"
+  KMS_API_ENABLED: "true"
+  
+  # Rate Limiting and Quotas (Development)
+  RATE_LIMIT_REQUESTS_PER_MINUTE: "100"
+  RATE_LIMIT_BURST_SIZE: "10"
+  API_QUOTA_MANAGEMENT: "true"
+  
+  # Monitoring and Support
+  MONITORING_ENABLED: "true"
+  SUPPORT_EMAIL: "dev-support@yourdomain.com"
+  SUPPORT_URL: "https://dev-support.yourdomain.com"
+  
+  # Marketplace Integration
+  OAUTH_CONSENT_SCREEN_ENABLED: "true"
+  OAUTH_SCOPES: "https://www.googleapis.com/auth/drive.readonly,https://www.googleapis.com/auth/drive.metadata.readonly"
+  OAUTH_VERIFICATION_STATUS: "unverified"

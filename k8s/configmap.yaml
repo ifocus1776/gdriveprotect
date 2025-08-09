@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gdriveprotect-config
+  namespace: gdriveprotect
+  labels:
+    app: gdriveprotect
+data:
+  # Application Configuration
+  FLASK_APP: "src.main"
+  FLASK_ENV: "production"
+  PYTHONUNBUFFERED: "1"
+  
+  # Google Cloud Configuration
+  GOOGLE_CLOUD_PROJECT: "your-project-id"
+  
+  # Vault Configuration
+  VAULT_STORAGE_PREFERENCE: "hybrid"
+  FIPS_ENABLED: "true"
+  VAULT_BUCKET: "gdriveprotect-vault"
+  DRIVE_VAULT_FOLDER_NAME: "Secure Vault - FIPS Encrypted"
+  
+  # User Type Configuration
+  USER_TYPE: "enterprise"
+  ENTERPRISE_DOMAIN: "yourcompany.com"
+  
+  # Storage Configuration
+  SCAN_RESULTS_BUCKET: "gdriveprotect-scan-results"
+  
+  # Logging Configuration
+  LOG_LEVEL: "INFO"
+  
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gdriveprotect-config-dev
+  namespace: gdriveprotect-dev
+  labels:
+    app: gdriveprotect
+data:
+  # Development Configuration
+  FLASK_APP: "src.main"
+  FLASK_ENV: "development"
+  PYTHONUNBUFFERED: "1"
+  
+  # Google Cloud Configuration
+  GOOGLE_CLOUD_PROJECT: "your-dev-project-id"
+  
+  # Vault Configuration
+  VAULT_STORAGE_PREFERENCE: "hybrid"
+  FIPS_ENABLED: "true"
+  VAULT_BUCKET: "gdriveprotect-vault-dev"
+  DRIVE_VAULT_FOLDER_NAME: "Secure Vault - FIPS Encrypted (Dev)"
+  
+  # User Type Configuration
+  USER_TYPE: "individual"
+  
+  # Storage Configuration
+  SCAN_RESULTS_BUCKET: "gdriveprotect-scan-results-dev"
+  
+  # Logging Configuration
+  LOG_LEVEL: "DEBUG"

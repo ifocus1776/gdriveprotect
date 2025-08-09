@@ -1,0 +1,331 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gdriveprotect
+  namespace: gdriveprotect
+  labels:
+    app: gdriveprotect
+    version: v1.0.0
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: gdriveprotect
+  template:
+    metadata:
+      labels:
+        app: gdriveprotect
+        version: v1.0.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: gdriveprotect-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: gdriveprotect
+        image: gcr.io/your-project/gdriveprotect:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+          name: http
+          protocol: TCP
+        env:
+        # ConfigMap values
+        - name: FLASK_APP
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config
+              key: FLASK_APP
+        - name: FLASK_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config
+              key: FLASK_ENV
+        - name: PYTHONUNBUFFERED
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config
+              key: PYTHONUNBUFFERED
+        - name: GOOGLE_CLOUD_PROJECT
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config
+              key: GOOGLE_CLOUD_PROJECT
+        - name: VAULT_STORAGE_PREFERENCE
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config
+              key: VAULT_STORAGE_PREFERENCE
+        - name: FIPS_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config
+              key: FIPS_ENABLED
+        - name: VAULT_BUCKET
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config
+              key: VAULT_BUCKET
+        - name: DRIVE_VAULT_FOLDER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config
+              key: DRIVE_VAULT_FOLDER_NAME
+        - name: USER_TYPE
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config
+              key: USER_TYPE
+        - name: ENTERPRISE_DOMAIN
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config
+              key: ENTERPRISE_DOMAIN
+        - name: SCAN_RESULTS_BUCKET
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config
+              key: SCAN_RESULTS_BUCKET
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config
+              key: LOG_LEVEL
+        # Secret values
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/app/.config/gcloud/application_default_credentials.json"
+        - name: KMS_KEY_NAME
+          valueFrom:
+            secretKeyRef:
+              name: gdriveprotect-secrets
+              key: KMS_KEY_NAME
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: gdriveprotect-secrets
+              key: GOOGLE_CLIENT_ID
+        - name: GOOGLE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: gdriveprotect-secrets
+              key: GOOGLE_CLIENT_SECRET
+        - name: INDIVIDUAL_USER_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: gdriveprotect-secrets
+              key: INDIVIDUAL_USER_EMAIL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /api/vault/health
+            port: 5000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/vault/health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: google-credentials
+          mountPath: /app/.config/gcloud
+          readOnly: true
+        - name: logs
+          mountPath: /app/logs
+        - name: temp
+          mountPath: /app/temp
+      volumes:
+      - name: google-credentials
+        secret:
+          secretName: gdriveprotect-secrets
+          items:
+          - key: GOOGLE_APPLICATION_CREDENTIALS
+            path: application_default_credentials.json
+      - name: logs
+        emptyDir: {}
+      - name: temp
+        emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gdriveprotect-dev
+  namespace: gdriveprotect-dev
+  labels:
+    app: gdriveprotect
+    environment: development
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: gdriveprotect
+      environment: development
+  template:
+    metadata:
+      labels:
+        app: gdriveprotect
+        environment: development
+    spec:
+      serviceAccountName: gdriveprotect-sa-dev
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: gdriveprotect
+        image: gcr.io/your-project/gdriveprotect:dev
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+          name: http
+          protocol: TCP
+        env:
+        # ConfigMap values
+        - name: FLASK_APP
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config-dev
+              key: FLASK_APP
+        - name: FLASK_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config-dev
+              key: FLASK_ENV
+        - name: PYTHONUNBUFFERED
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config-dev
+              key: PYTHONUNBUFFERED
+        - name: GOOGLE_CLOUD_PROJECT
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config-dev
+              key: GOOGLE_CLOUD_PROJECT
+        - name: VAULT_STORAGE_PREFERENCE
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config-dev
+              key: VAULT_STORAGE_PREFERENCE
+        - name: FIPS_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config-dev
+              key: FIPS_ENABLED
+        - name: VAULT_BUCKET
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config-dev
+              key: VAULT_BUCKET
+        - name: DRIVE_VAULT_FOLDER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config-dev
+              key: DRIVE_VAULT_FOLDER_NAME
+        - name: USER_TYPE
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config-dev
+              key: USER_TYPE
+        - name: SCAN_RESULTS_BUCKET
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config-dev
+              key: SCAN_RESULTS_BUCKET
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: gdriveprotect-config-dev
+              key: LOG_LEVEL
+        # Secret values
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/app/.config/gcloud/application_default_credentials.json"
+        - name: KMS_KEY_NAME
+          valueFrom:
+            secretKeyRef:
+              name: gdriveprotect-secrets-dev
+              key: KMS_KEY_NAME
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: gdriveprotect-secrets-dev
+              key: GOOGLE_CLIENT_ID
+        - name: GOOGLE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: gdriveprotect-secrets-dev
+              key: GOOGLE_CLIENT_SECRET
+        - name: INDIVIDUAL_USER_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: gdriveprotect-secrets-dev
+              key: INDIVIDUAL_USER_EMAIL
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/vault/health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/vault/health
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: google-credentials
+          mountPath: /app/.config/gcloud
+          readOnly: true
+        - name: logs
+          mountPath: /app/logs
+        - name: temp
+          mountPath: /app/temp
+      volumes:
+      - name: google-credentials
+        secret:
+          secretName: gdriveprotect-secrets-dev
+          items:
+          - key: GOOGLE_APPLICATION_CREDENTIALS
+            path: application_default_credentials.json
+      - name: logs
+        emptyDir: {}
+      - name: temp
+        emptyDir: {}
