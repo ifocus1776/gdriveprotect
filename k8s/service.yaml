@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gdriveprotect-service
+  namespace: gdriveprotect
+  labels:
+    app: gdriveprotect
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "5000"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+    name: http
+  - port: 5000
+    targetPort: 5000
+    protocol: TCP
+    name: api
+  selector:
+    app: gdriveprotect
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gdriveprotect-service-dev
+  namespace: gdriveprotect-dev
+  labels:
+    app: gdriveprotect
+    environment: development
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+    name: http
+  - port: 5000
+    targetPort: 5000
+    protocol: TCP
+    name: api
+  selector:
+    app: gdriveprotect
+    environment: development
