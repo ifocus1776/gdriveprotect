@@ -341,18 +341,8 @@ class DLPScanner:
             
             # Add custom info types if enabled
             if include_custom_types and "customInfoTypes" in dlp_config["inspectConfig"]:
-                # Convert custom info types to proper DLP API format
-                custom_info_types = []
-                for custom_type in dlp_config["inspectConfig"]["customInfoTypes"]:
-                    # Ensure proper structure for DLP API
-                    if "info_type" in custom_type:
-                        custom_info_types.append({
-                            "info_type": custom_type["info_type"],
-                            "likelihood": custom_type.get("likelihood", "POSSIBLE"),
-                            "detection_rule": custom_type.get("detection_rule", {})
-                        })
-                if custom_info_types:
-                    inspect_config["custom_info_types"] = custom_info_types
+                # Use the custom info types directly as they're already in the correct format
+                inspect_config["custom_info_types"] = dlp_config["inspectConfig"]["customInfoTypes"]
             
             # Create the request
             parent = f"projects/{self.project_id}"
