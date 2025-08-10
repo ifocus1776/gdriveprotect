@@ -52,12 +52,18 @@ class VaultManager:
         # Initialize clients
         self._init_clients()
         
-        # Initialize storage systems
-        if self.storage_client:
-            self._ensure_vault_bucket_exists()
+        # Initialize storage systems (only if we have valid clients)
+        if self.storage_client and os.environ.get('FLASK_ENV') != 'development':
+            try:
+                self._ensure_vault_bucket_exists()
+            except Exception as e:
+                logger.warning(f"Could not ensure vault bucket exists: {e}")
         
-        if self.drive_service:
-            self._ensure_drive_vault_folder_exists()
+        if self.drive_service and os.environ.get('FLASK_ENV') != 'development':
+            try:
+                self._ensure_drive_vault_folder_exists()
+            except Exception as e:
+                logger.warning(f"Could not ensure drive vault folder exists: {e}")
     
     def _init_clients(self):
         """Initialize Google Cloud and Drive clients with support for both enterprise and individual users"""
@@ -993,8 +999,23 @@ class VaultManager:
             logger.error(f"Error creating vault bucket: {e}")
             return {'error': str(e)}
 
-# Initialize vault manager instance
-vault_manager = VaultManager()
+# Global vault manager instance - lazy loaded
+_vault_manager = None
+
+def get_vault_manager():
+    """Get the global vault manager instance, creating it if necessary"""
+    global _vault_manager
+    if _vault_manager is None:
+        try:
+            _vault_manager = VaultManager()
+        except Exception as e:
+            logger.error(f"Failed to initialize VaultManager: {e}")
+            # Create a minimal instance for testing
+            _vault_manager = VaultManager.__new__(VaultManager)
+            _vault_manager.storage_client = None
+            _vault_manager.drive_service = None
+            _vault_manager.kms_client = None
+    return _vault_manager
 
 @vault_bp.route('/store', methods=['POST'])
 def store_document():
@@ -1009,6 +1030,7 @@ def store_document():
         if not all([file_id, file_name, content]):
             return jsonify({'error': 'file_id, file_name, and content are required'}), 400
         
+        vault_manager = get_vault_manager()
         result = vault_manager.store_document(file_id, file_name, content, metadata)
         
         return jsonify({
@@ -1025,6 +1047,7 @@ def store_document():
 def retrieve_document(vault_path):
     """Retrieve a document from the vault"""
     try:
+        vault_manager = get_vault_manager()
         result = vault_manager.retrieve_document(vault_path)
         
         # Return as file download or JSON based on request
@@ -1068,6 +1091,7 @@ def list_documents():
         prefix = request.args.get('prefix')
         limit = int(request.args.get('limit', 100))
         
+        vault_manager = get_vault_manager()
         documents = vault_manager.list_vault_documents(prefix=prefix, limit=limit)
         
         return jsonify({
@@ -1084,6 +1108,7 @@ def list_documents():
 def delete_document(vault_path):
     """Delete a document from the vault"""
     try:
+        vault_manager = get_vault_manager()
         vault_manager.delete_document(vault_path)
         
         return jsonify({
@@ -1101,6 +1126,7 @@ def delete_document(vault_path):
 def get_statistics():
     """Get vault statistics"""
     try:
+        vault_manager = get_vault_manager()
         stats = vault_manager.get_vault_statistics()
         
         return jsonify({
