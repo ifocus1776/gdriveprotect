@@ -45,6 +45,7 @@ class APITester:
         print("🔍 Testing Health Endpoints...")
         
         health_endpoints = [
+            ('/health', 'Main Health Check'),
             ('/api/dlp/health', 'DLP Scanner Health'),
             ('/api/drive/health', 'Drive Monitor Health'),
             ('/api/vault/health', 'Vault Manager Health')
@@ -242,7 +243,7 @@ def main():
     """Main test runner"""
     # Check if container is running
     try:
-        response = requests.get("http://localhost:5000/api/dlp/health", timeout=5)
+        response = requests.get("http://localhost:5000/health", timeout=5)
         if response.status_code != 200:
             print("❌ Container is not responding properly")
             sys.exit(1)

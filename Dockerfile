@@ -61,6 +61,7 @@ COPY --chown=appuser:appuser HYBRID_VAULT_SETUP.md .
 RUN mkdir -p /app/.config/gcloud \
     && mkdir -p /app/logs \
     && mkdir -p /app/temp \
+    && mkdir -p /app/src/database \
     && chown -R appuser:appuser /app
 
 # Switch to non-root user
@@ -71,7 +72,7 @@ EXPOSE 5000
 
 # Health check with proper timeout
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:5000/api/vault/health || exit 1
+    CMD curl -f http://localhost:5000/health || exit 1
 
 # Run the application with proper signal handling
 CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"]
