@@ -149,77 +149,77 @@ class DLPScanner:
         """Get custom info types for company-specific sensitive data"""
         return [
             {
-                "infoType": {
+                "info_type": {
                     "name": "CUSTOM_EMPLOYEE_ID"
                 },
                 "likelihood": "POSSIBLE",
-                "detectionRule": {
-                    "hotwordRule": {
-                        "hotwordRegex": {
+                "detection_rule": {
+                    "hotword_rule": {
+                        "hotword_regex": {
                             "pattern": r"EMP-\d{6}"
                         },
                         "proximity": {
-                            "windowBefore": 10,
-                            "windowAfter": 10
+                            "window_before": 10,
+                            "window_after": 10
                         }
                     }
                 }
             },
             {
-                "infoType": {
+                "info_type": {
                     "name": "CUSTOM_INTERNAL_REFERENCE"
                 },
                 "likelihood": "POSSIBLE",
-                "detectionRule": {
-                    "hotwordRule": {
-                        "hotwordRegex": {
+                "detection_rule": {
+                    "hotword_rule": {
+                        "hotword_regex": {
                             "pattern": r"REF-\d{4}-\d{4}"
                         },
                         "proximity": {
-                            "windowBefore": 10,
-                            "windowAfter": 10
+                            "window_before": 10,
+                            "window_after": 10
                         }
                     }
                 }
             },
             {
-                "infoType": {
+                "info_type": {
                     "name": "CUSTOM_API_KEY"
                 },
                 "likelihood": "LIKELY",
-                "detectionRule": {
-                    "hotwordRule": {
-                        "hotwordRegex": {
+                "detection_rule": {
+                    "hotword_rule": {
+                        "hotword_regex": {
                             "pattern": r"[a-zA-Z0-9]{32,}"
                         },
                         "proximity": {
-                            "windowBefore": 5,
-                            "windowAfter": 5
+                            "window_before": 5,
+                            "window_after": 5
                         }
                     }
                 }
             },
             {
-                "infoType": {
+                "info_type": {
                     "name": "CUSTOM_IP_ADDRESS"
                 },
                 "likelihood": "POSSIBLE",
-                "detectionRule": {
-                    "hotwordRule": {
-                        "hotwordRegex": {
+                "detection_rule": {
+                    "hotword_rule": {
+                        "hotword_regex": {
                             "pattern": r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b"
                         }
                     }
                 }
             },
             {
-                "infoType": {
+                "info_type": {
                     "name": "CUSTOM_DATABASE_CONNECTION"
                 },
                 "likelihood": "LIKELY",
-                "detectionRule": {
-                    "hotwordRule": {
-                        "hotwordRegex": {
+                "detection_rule": {
+                    "hotword_rule": {
+                        "hotword_regex": {
                             "pattern": r"(?:jdbc|mysql|postgresql|mongodb)://[^\s]+"
                         }
                     }
@@ -247,18 +247,18 @@ class DLPScanner:
             if custom_patterns:
                 for pattern_name, pattern_config in custom_patterns.items():
                     custom_types.append({
-                        "infoType": {
+                        "info_type": {
                             "name": f"CUSTOM_{pattern_name.upper()}"
                         },
                         "likelihood": pattern_config.get("likelihood", "POSSIBLE"),
-                        "detectionRule": {
-                            "hotwordRule": {
-                                "hotwordRegex": {
+                        "detection_rule": {
+                            "hotword_rule": {
+                                "hotword_regex": {
                                     "pattern": pattern_config["pattern"]
                                 },
                                 "proximity": {
-                                    "windowBefore": pattern_config.get("window_before", 10),
-                                    "windowAfter": pattern_config.get("window_after", 10)
+                                    "window_before": pattern_config.get("window_before", 10),
+                                    "window_after": pattern_config.get("window_after", 10)
                                 }
                             }
                         }
@@ -341,7 +341,18 @@ class DLPScanner:
             
             # Add custom info types if enabled
             if include_custom_types and "customInfoTypes" in dlp_config["inspectConfig"]:
-                inspect_config["custom_info_types"] = dlp_config["inspectConfig"]["customInfoTypes"]
+                # Convert custom info types to proper DLP API format
+                custom_info_types = []
+                for custom_type in dlp_config["inspectConfig"]["customInfoTypes"]:
+                    # Ensure proper structure for DLP API
+                    if "info_type" in custom_type:
+                        custom_info_types.append({
+                            "info_type": custom_type["info_type"],
+                            "likelihood": custom_type.get("likelihood", "POSSIBLE"),
+                            "detection_rule": custom_type.get("detection_rule", {})
+                        })
+                if custom_info_types:
+                    inspect_config["custom_info_types"] = custom_info_types
             
             # Create the request
             parent = f"projects/{self.project_id}"
