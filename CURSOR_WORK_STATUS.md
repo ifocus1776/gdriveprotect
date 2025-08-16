@@ -96,3 +96,4 @@ docker stop gdriveprotect-workspace && docker rm gdriveprotect-workspace
 
 The application is enterprise-ready with multi-user support, user impersonation, and comprehensive security features. Just enable the Admin SDK API and configure domain-wide delegation to complete the setup.
 
+
